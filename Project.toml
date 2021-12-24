@@ -1,0 +1,7 @@
+name = "Yahtzee"
+uuid = "5bd69db9-de27-4b88-b27f-82df6a7f5624"
+authors = ["Jonathan Laurent <jonathan.laurent@cs.cmu.edu>"]
+version = "0.1.0"
+
+[deps]
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
