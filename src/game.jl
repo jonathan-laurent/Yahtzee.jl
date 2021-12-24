@@ -2,6 +2,7 @@ export Category
 export DiceConfig
 export PlayerState, MultiPlayerState
 export parse_action
+export remaining_cats, is_done
 
 @enum Category begin
   ACES
@@ -41,15 +42,18 @@ CAT_ABBREV_REV = Dict(a=>c for (c, a) in CAT_ABBREV)
 parse_cat_abbrev(s::String) = CAT_ABBREV_REV[s]
 cat_abbrev(c::Category) = CAT_ABBREV[c]
 
+INIT_ROLLS_LEFT = 3
+
 struct PlayerState
   scores :: SVector{NUM_CATEGORIES, Union{Int, Nothing}}
+  rolls_left :: Int
 end
 
 catval(s::PlayerState, c::Category) = s.scores[Int(c) + 1]
 
 function PlayerState()
   scores = @SVector[nothing for _ in instances(Category)]
-  return PlayerState(scores)
+  return PlayerState(scores, INIT_ROLLS_LEFT)
 end
 
 struct MultiPlayerState
@@ -113,3 +117,14 @@ function parse_action(s)
   end
 end
 
+function remaining_cats(s::PlayerState)
+  return [Category(i - 1) for (i, s) in enumerate(s.scores) if isnothing(s)]
+end
+
+is_done(s) = isempty(remaining_cats(s))
+
+function available_actions(s::PlayerState)
+end
+
+function play(s::PlayerState, a::Action)
+end
