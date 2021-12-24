@@ -2,6 +2,7 @@
 using StaticArrays
 
 export build_graph, fill_graph!
+export MicroState
 
 struct MicroState
     to_draw::Int8
