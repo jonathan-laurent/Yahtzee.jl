@@ -28,6 +28,7 @@ catval(s::PlayerState, c::Category) = s.scores[Int(c) + 1]
 
 function PlayerState()
   scores = @SVector[nothing for _ in instances(Category)]
+  return PlayerState(scores)
 end
 
 struct MultiPlayerState
@@ -62,9 +63,12 @@ function Base.show(io::IO, s::MultiPlayerState)
   score(s) = isnothing(s) ? "" : string(s)
   data = [
     score(catval(s, c))
-    for (_ , s) in s.players, c in instances(Category)]
+    for c in instances(Category), (_ , s) in s.players]
   data = hcat([string(c) for c in instances(Category)], data)
   header = [" "; [name for (name, _) in s.players]]
-  s = pretty_table(data; header)
-  print(io, s)
+  pretty_table(io, data; header)
+end
+
+function Base.show(io::IO, s::PlayerState)
+  show(io, MultiPlayerState([("Score", s)]))
 end

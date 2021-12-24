@@ -1,6 +1,7 @@
 module Yahtzee
 
   using StaticArrays
+  using PrettyTables
 
   include("game.jl")
   include("macro.jl")
