@@ -42,7 +42,8 @@ function set_used(s::MacroState, cat::Category)
 end
 
 function Base.show(io::IO, s::MacroState)
-  println(io, "Upper score: ", upper_sec_total(s))
-  remaining = [string(c) for c in instances(Category) if !is_used(s, c)]
-  print(io, "Remaining: ", join(remaining, ", "))
+  upper = upper_sec_total(s)
+  remaining = [cat_abbrev(c) for c in instances(Category) if !is_used(s, c)]
+  remaining = join(remaining, ", ")
+  print(io, "{upper: $(upper); remaining: $(remaining)}")
 end
