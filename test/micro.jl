@@ -3,6 +3,7 @@ using Yahtzee
 using PrettyTables
 
 function test()
+    # Graph building
     g=build_graph()
 
     ss=g.rand1[g.init].successors
@@ -24,6 +25,9 @@ function test()
     for (k,v) in g.final
         @assert k.to_draw == 0
     end
+
+    # Graph filling
+    fill_graph!(INITIAL_MACROSTATE, g)
 end
 
 test()
