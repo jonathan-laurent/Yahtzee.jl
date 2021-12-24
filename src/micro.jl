@@ -10,44 +10,106 @@ end
 
 MicroFinalState = Tuple{MicroState,Category}
 
-mutable struct MicroStateValue
+mutable struct MicroActionStateValue
     value::Int8
     successors::Vector{MicroState}
 end
 
-MicroStep = Dict{MicroState, MicroStateValue}
+mutable struct MicroRandStateValue
+    value::Int8
+    successors::Vector{Tuple{Float64,MicroState}}
+end
 
 mutable struct MicroFinalStateValue
     value::Int8
     successors::Vector{MicroFinalState}
 end
 
+MicroStateValue = Union{MicroActionStateValue, MicroRandStateValue, MicroFinalStateValue}
+
+MicroActionStep = Dict{MicroState, MicroActionStateValue}
+MicroRandStep = Dict{MicroState, MicroRandStateValue}
 MicroFinalStep = Dict{MicroState, MicroFinalStateValue}
+
+MicroStep = Union{MicroActionStep, MicroRandStep, MicroFinalStep}
 
 struct MicroGame
     init::MicroState
-    rand1::MicroStep
-    action1::MicroStep
-    rand2::MicroStep
-    action2::MicroStep
-    rand3::MicroStep
+    rand1::MicroRandStep
+    action1::MicroActionStep
+    rand2::MicroRandStep
+    action2::MicroActionStep
+    rand3::MicroRandStep
     final::MicroFinalStep
 end
 
-function micro_final_state_to_macro_state(initial_macro, state::MicroFinalState)
+UPPER_CATEGORIES = [ACES, TWOS, THREES, FOURS, FIVES, SIXES]
 
+function micro_final_state_to_macro_state(initial::MacroState, state::MicroFinalState)
+    (state, cat) = state
+    if is_used(initial, cat)
+        return nothing
+    end
+    final = set_used(initial, cat)
+    n = findfirst(x -> x == cat, UPPER_CATEGORIES)
+    if n !== nothing
+        final = add_upper_sec(final, state.dice_values[n]*n)
+    end
+    return final
+end
+
+function score_of_final_state(state::MicroFinalState)
+    (state, cat) = state
+    n = findfirst(x -> x == cat, UPPER_CATEGORIES)
+    dice_values = state.dice_values
+    if n !== nothing
+        return dice_values[n]*n
+    elseif cat == THREE_OF_A_KIND
+        return any(x -> x >= 3, dice_values) ? sum(dice_values) : 0
+    elseif cat == FOUR_OF_A_KIND
+        return any(x -> x >= 4, dice_values) ? sum(dice_values) : 0
+    elseif cat == FULL_HOUSE
+        return any(x -> x == 3, dice_values) && any(x -> x == 2, dice_values) ? 25 : 0
+    elseif cat == SMALL_STRAIGHT
+        for i in 1..3
+            if dice_values[i] >= 1 && dice_values[i+1] >= 1 && dice_values[i+2] >= 1 && dice_values[i+3] >= 1
+                return 30
+            end
+        end
+        return 0
+    elseif cat == LARGE_STRAIGHT
+        for i in 1..2
+            if dice_values[i] >= 1 && dice_values[i+1] >= 1 && dice_values[i+2] >= 1 &&
+                dice_values[i+3] >= 1 && dice_values[i+4] >= 1
+                return 40
+            end
+        end
+        return 0
+        #return all(x -> x <= 1, dice_values) && (dice_values[1] == 0 || dice_values[6] == 0) ? 40 : 0
+    elseif cat == YAHTZEE
+        return any(x -> x >= 5, dice_values) ? 50 : 0
+    elseif cat == CHANCE
+        return sum(dice_values)
+    end
 end
 
 function draw_one(state::MicroState)
     nb = state.to_draw-1
     dice_values = state.dice_values
-    return Set(MicroState(nb, setindex(dice_values, dice_values[i]+1, i)) for i in 1:6)
+    return [MicroState(nb, setindex(dice_values, dice_values[i]+1, i)) for i in 1:6]
 end
 
 function rand_step_successors(state::MicroState)
-    succ = Set([state])
+    succ = Dict([(state, 1)])
     for _ in 1:state.to_draw
-        succ = union((draw_one(s) for s in succ)...)
+        new_succ = Dict{MicroState,Int32}()
+        for (s,c) in succ
+            for ss in draw_one(s)
+                cc = haskey(new_succ, ss) ? new_succ[ss] : 0
+                new_succ[ss] = cc + c
+            end
+        end
+        succ = new_succ
     end
     return succ
 end
@@ -55,23 +117,36 @@ end
 function remove_one(state::MicroState)
     nb = state.to_draw+1
     dice_values = state.dice_values
-    return Set(MicroState(nb, setindex(dice_values, dice_values[i]-1, i)) for i in 1:6 if dice_values[i]>0)
+    return [MicroState(nb, setindex(dice_values, dice_values[i]-1, i)) for i in 1:6 if dice_values[i]>0]
 end
 
 function action_step_successors(state::MicroState)
     succ = Set([state])
     for _ in 1:5
-        succ = union(succ, union((remove_one(s) for s in succ)...))
+        succ = union(succ, union((Set(remove_one(s)) for s in succ)...))
     end
     return succ
 end
 
-function build_graph_step(succ::Set{MicroState}, f)
-    r = Dict{MicroState, MicroStateValue}()
+function build_graph_action_step(succ::Set{MicroState})
+    r = Dict{MicroState, MicroActionStateValue}()
     new_succ = Set{MicroState}()
     for s in succ
-        cur_succ = f(s)
-        r[s] = MicroStateValue(0, collect(cur_succ))
+        cur_succ = action_step_successors(s)
+        r[s] = MicroActionStateValue(0, collect(cur_succ))
+        new_succ = union(new_succ, cur_succ)
+    end
+    return (r, new_succ)
+end
+
+function build_graph_rand_step(succ::Set{MicroState})
+    r = Dict{MicroState, MicroRandStateValue}()
+    new_succ = Set{MicroState}()
+    for s in succ
+        cur_succ = rand_step_successors(s)
+        total_card = sum(v for (_,v) in cur_succ)
+        r[s] = MicroRandStateValue(0, [(v/total_card, k) for (k,v) in cur_succ])
+        cur_succ = Set(k for (k,_) in cur_succ)
         new_succ = union(new_succ, cur_succ)
     end
     return (r, new_succ)
@@ -79,15 +154,54 @@ end
 
 function build_graph()
     init = MicroState(5, SVector(0, 0, 0, 0, 0, 0))
-    (rand1, succ) = build_graph_step(Set([init]), rand_step_successors)
-    (action1, succ) = build_graph_step(succ, action_step_successors)
-    (rand2, succ) = build_graph_step(succ, rand_step_successors)
-    (action2, succ) = build_graph_step(succ, action_step_successors)
-    (rand3, succ) = build_graph_step(succ, rand_step_successors)
+    (rand1, succ) = build_graph_rand_step(Set([init]))
+    (action1, succ) = build_graph_action_step(succ)
+    (rand2, succ) = build_graph_rand_step(succ)
+    (action2, succ) = build_graph_action_step(succ)
+    (rand3, succ) = build_graph_rand_step(succ)
     final = Dict((s, MicroFinalStateValue(0, [(s, c) for c in instances(Category)])) for s in succ)
     return MicroGame(init, rand1, action1, rand2, action2, rand3, final)
 end
 
-function fill_graph()
+function propagate_action_step!(step::MicroActionStep, next_step::MicroStep)
+    for (_, v) in step
+        val = 0
+        for s in v.successors
+            score = next_step[s].value
+            val = max(val, score)
+        end
+        v.value = val
+    end
+end
 
+function propagate_rand_step!(step::MicroRandStep, next_step::MicroStep)
+    for (_, v) in step
+        val = 0
+        for (p,s) in v.successors
+            score = next_step[s].value
+            val += p*score;
+        end
+        v.value = val
+    end
+end
+
+function fill_graph!(initial::MacroState, g::MicroGame)
+    # Fill final states
+    for (_,v) in g.final
+        val = 0
+        for s in v.successors
+            final_macro = micro_final_state_to_macro_state(initial, s)
+            if final_macro !== nothing
+                score = score_of_final_state(s) #+ score_of_macro(final_macro)
+                val = max(val, score)
+            end
+        end
+        v.value = val
+    end
+    # Propagate
+    propagate_rand_step!(f.rand3, f.final)
+    propagate_action_step!(f.action2, f.rand3)
+    propagate_rand_step!(f.rand2, f.action2)
+    propagate_action_step!(f.action1, f.rand2)
+    propagate_rand_step!(f.rand1, f.action1)
 end
