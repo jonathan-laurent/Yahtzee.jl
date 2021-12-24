@@ -4,6 +4,10 @@ export PlayerState, MultiPlayerState
 export parse_action
 export remaining_cats, is_done
 
+#####
+#####  Categories
+#####
+
 @enum Category begin
   ACES
   TWOS
@@ -42,23 +46,9 @@ CAT_ABBREV_REV = Dict(a=>c for (c, a) in CAT_ABBREV)
 parse_cat_abbrev(s::String) = CAT_ABBREV_REV[s]
 cat_abbrev(c::Category) = CAT_ABBREV[c]
 
-INIT_ROLLS_LEFT = 3
-
-struct PlayerState
-  scores :: SVector{NUM_CATEGORIES, Union{Int, Nothing}}
-  rolls_left :: Int
-end
-
-catval(s::PlayerState, c::Category) = s.scores[Int(c) + 1]
-
-function PlayerState()
-  scores = @SVector[nothing for _ in instances(Category)]
-  return PlayerState(scores, INIT_ROLLS_LEFT)
-end
-
-struct MultiPlayerState
-  players :: Vector{Tuple{String, PlayerState}}
-end
+#####
+#####  Dice configurations
+#####
 
 ROLL_AGAIN = 0
 MIN_DICE_VALUE = 1
@@ -85,6 +75,44 @@ function Base.show(io::IO, c::DiceConfig)
   print(io, join(string(d) for d in c.dices))
 end
 
+ROLL_EVERYTHING = parse(DiceConfig, "-----")
+
+#####
+#####  Game stage
+#####
+
+@enum Stage begin
+  ROLL_1      # chance
+  CHOOSE_1    # action
+  ROLL_2      # chance
+  CHOOSE_2    # action
+  ROLL_3      # chance
+  CHOOSE_CAT  # action
+end
+
+INIT_STAGE = ROLL_1
+
+struct PlayerState
+  scores :: SVector{NUM_CATEGORIES, Union{Int, Nothing}}
+  stage :: Stage
+  dices :: DiceConfig
+end
+
+catval(s::PlayerState, c::Category) = s.scores[Int(c) + 1]
+
+#####
+#####  Dice configurations
+#####
+
+function PlayerState()
+  scores = @SVector[nothing for _ in instances(Category)]
+  return PlayerState(scores, INIT_STAGE, ROLL_EVERYTHING)
+end
+
+struct MultiPlayerState
+  players :: Vector{Tuple{String, PlayerState}}
+end
+
 function Base.show(io::IO, s::MultiPlayerState)
   score(s) = isnothing(s) ? "" : string(s)
   data = [
@@ -98,6 +126,10 @@ end
 function Base.show(io::IO, s::PlayerState)
   show(io, MultiPlayerState([("Score", s)]))
 end
+
+#####
+##### Actions
+#####
 
 abstract type Action end
 
@@ -116,6 +148,10 @@ function parse_action(s)
     return ChooseCategory(parse_cat_abbrev(s))
   end
 end
+
+#####
+##### Game
+#####
 
 function remaining_cats(s::PlayerState)
   return [Category(i - 1) for (i, s) in enumerate(s.scores) if isnothing(s)]
