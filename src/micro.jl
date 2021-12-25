@@ -59,32 +59,32 @@ function Base.show(io::IO, s::MicroState)
         end
     end
     for _ in 1:s.to_draw
-        push!(dices, "X")
+        push!(dices, "-")
     end
     str = join(dices, "")
     print(io, str)
   end
 
-UPPER_CATEGORIES = [ACES, TWOS, THREES, FOURS, FIVES, SIXES]
+const UPPER_CATEGORIES = [ACES, TWOS, THREES, FOURS, FIVES, SIXES]
 
-function micro_category_state_to_macro_state(initial::MacroState, state::MicroCategoryState)
-    (state, cat) = state
+function micro_category_state_to_macro_state(initial::MacroState, cat_state::MicroCategoryState)
+    (state, cat) = cat_state
     if is_used(initial, cat)
         return nothing
     end
     final = set_used(initial, cat)
-    n = findfirst(x -> x == cat, UPPER_CATEGORIES)
-    if n !== nothing
+    n = findfirst(==(cat), UPPER_CATEGORIES)
+    if !isnothing(n)
         final = add_upper_sec(final, state.dice_values[n]*n)
     end
     return final
 end
 
-function score_of_category_state(state::MicroCategoryState)
-    (state, cat) = state
-    n = findfirst(x -> x == cat, UPPER_CATEGORIES)
+function score_of_category_state(cat_state::MicroCategoryState)
+    (state, cat) = cat_state
+    n = findfirst(==(cat), UPPER_CATEGORIES)
     dice_values = state.dice_values
-    if n !== nothing
+    if !isnothing(n)
         return dice_values[n]*n
     elseif cat == THREE_OF_A_KIND
         return any(x -> x >= 3, dice_values) ? sum(i*n for (i,n) in enumerate(dice_values)) : 0
@@ -212,7 +212,7 @@ function fill_graph!(initial::MacroState, g::MicroGame, macro_values)
     # Fill final states
     for (s,v) in g.final
         final_macro = micro_category_state_to_macro_state(initial, s)
-        if final_macro !== nothing
+        if !isnothing(final_macro)
             v.value = score_of_category_state(s) + macro_values(final_macro)
         else
             v.value = -Inf64
