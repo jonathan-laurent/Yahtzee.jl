@@ -87,9 +87,9 @@ function score_of_category_state(state::MicroCategoryState)
     if n !== nothing
         return dice_values[n]*n
     elseif cat == THREE_OF_A_KIND
-        return any(x -> x >= 3, dice_values) ? sum(dice_values) : 0
+        return any(x -> x >= 3, dice_values) ? sum(i*n for (i,n) in enumerate(dice_values)) : 0
     elseif cat == FOUR_OF_A_KIND
-        return any(x -> x >= 4, dice_values) ? sum(dice_values) : 0
+        return any(x -> x >= 4, dice_values) ? sum(i*n for (i,n) in enumerate(dice_values)) : 0
     elseif cat == FULL_HOUSE
         return any(x -> x == 3, dice_values) && any(x -> x == 2, dice_values) ? 25 : 0
     elseif cat == SMALL_STRAIGHT
@@ -111,7 +111,7 @@ function score_of_category_state(state::MicroCategoryState)
     elseif cat == YAHTZEE
         return any(x -> x >= 5, dice_values) ? 50 : 0
     elseif cat == CHANCE
-        return sum(dice_values)
+        return sum(i*n for (i,n) in enumerate(dice_values))
     end
 end
 
