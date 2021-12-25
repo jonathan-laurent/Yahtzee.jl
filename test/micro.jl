@@ -27,12 +27,16 @@ function test()
     end
 
     # Graph filling
-    fill_graph!(INITIAL_MACROSTATE, g, _ -> 0)
+    macro_st = INITIAL_MACROSTATE
+    macro_st = set_used(macro_st, Yahtzee.SMALL_STRAIGHT)
+    fill_graph!(macro_st, g, _ -> 0)
     println(value_of_initial_state(g))
-    state = MicroState(0, SVector(1,1,0,0,0,3))
+    state = MicroState(0, SVector(1,1,0,3,0,0))
     println(best_action(g, state, 1))
     println(best_action(g, state, 2))
-    println(best_action(g, state, 3))
+    (st, v) = best_action(g, state, 3)
+    println((st, v))
+    println(micro_category_state_to_macro_state(macro_st, st))
 end
 
 test()

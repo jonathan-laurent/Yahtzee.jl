@@ -1,7 +1,8 @@
 
 using StaticArrays
 
-export build_graph, fill_graph!, value_of_initial_state, best_action
+export build_graph, fill_graph!
+export value_of_initial_state, best_action, micro_category_state_to_macro_state
 export MicroState
 
 struct MicroState
@@ -49,6 +50,20 @@ struct MicroGame
     action3::MicroCategoryStep
     final::MicroFinalStep
 end
+
+function Base.show(io::IO, s::MicroState)
+    dices = Vector{String}()
+    for (i,v) in enumerate(s.dice_values)
+        for _ in 1:v
+            push!(dices, string(i))
+        end
+    end
+    for _ in 1:s.to_draw
+        push!(dices, "X")
+    end
+    str = join(dices, "")
+    print(io, str)
+  end
 
 UPPER_CATEGORIES = [ACES, TWOS, THREES, FOURS, FIVES, SIXES]
 
