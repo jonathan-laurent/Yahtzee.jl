@@ -2,7 +2,7 @@ export Category
 export DiceConfig
 export ScoreSheet, State
 export parse_action
-export remaining_cats, is_done, is_chance
+export remaining_cats, is_done, is_chance, play, interactive
 
 #####
 #####  Categories
@@ -24,9 +24,9 @@ export remaining_cats, is_done, is_chance
   CHANCE
 end
 
-NUM_CATEGORIES = length(instances(Category))
+const NUM_CATEGORIES = length(instances(Category))
 
-CAT_ABBREV = Dict(
+const CAT_ABBREV = Dict(
   ACES => "1",
   TWOS => "2",
   THREES => "3",
@@ -41,7 +41,7 @@ CAT_ABBREV = Dict(
   YAHTZEE => "y",
   CHANCE => "c")
 
-CAT_ABBREV_REV = Dict(a=>c for (c, a) in CAT_ABBREV)
+const CAT_ABBREV_REV = Dict(a=>c for (c, a) in CAT_ABBREV)
 
 parse_cat_abbrev(s::String) = CAT_ABBREV_REV[s]
 cat_abbrev(c::Category) = CAT_ABBREV[c]
@@ -58,6 +58,9 @@ ScoreSheet() = ScoreSheet(@SVector[nothing for _ in instances(Category)])
 
 catval(s::ScoreSheet, c::Category) = s.scores[Int(c) + 1]
 
+set_catval(s::ScoreSheet, c::Category, v) =
+  ScoreSheet(setindex(s.scores, v, Int(c) + 1))
+
 function Base.show(io::IO, s::ScoreSheet)
   score(s) = isnothing(s) ? "" : string(s)
   data = [score(catval(s, c)) for c in instances(Category)]
@@ -69,11 +72,11 @@ end
 #####  Dice configurations
 #####
 
-ROLL_AGAIN = 0
-MIN_DICE_VALUE = 1
-MAX_DICE_VALUE = 6
-DICE_VALUES = MIN_DICE_VALUE:MAX_DICE_VALUE
-NUM_DICES = 5
+const ROLL_AGAIN = 0
+const MIN_DICE_VALUE = 1
+const MAX_DICE_VALUE = 6
+const DICE_VALUES = MIN_DICE_VALUE:MAX_DICE_VALUE
+const NUM_DICES = 5
 
 struct DiceConfig
   dices :: SVector{NUM_DICES, Int}
@@ -96,7 +99,7 @@ function Base.show(io::IO, c::DiceConfig)
   print(io, replace(join(string(d) for d in c.dices), "0" => "-"))
 end
 
-ROLL_EVERYTHING = parse(DiceConfig, "-----")
+const ROLL_EVERYTHING = parse(DiceConfig, "-----")
 
 #####
 #####  Game stage
@@ -111,11 +114,19 @@ ROLL_EVERYTHING = parse(DiceConfig, "-----")
   CHOOSE_CAT  # action
 end
 
-INIT_STAGE = ROLL_1
+const INIT_STAGE = ROLL_1
 
 stage_msg(s::Stage) = replace(string(s), "_" => " ")
 
 is_chance(s::Stage) = s == ROLL_1 || s == ROLL_2 || s == ROLL_3
+
+const NEXT_STAGE = Dict(
+  ROLL_1 => CHOOSE_1,
+  CHOOSE_1 => ROLL_2,
+  ROLL_2 => CHOOSE_2,
+  CHOOSE_2 => ROLL_3,
+  ROLL_3 => CHOOSE_CAT,
+  CHOOSE_CAT => ROLL_1)
 
 #####
 #####  State
@@ -139,7 +150,7 @@ end
 ##### Actions
 #####
 
-Action = Union{DiceConfig, Category}
+const Action = Union{DiceConfig, Category}
 
 function parse_action(s)
   try
@@ -154,7 +165,9 @@ end
 #####
 
 function remaining_cats(s::State)
-  return [Category(i - 1) for (i, s) in enumerate(s.scores) if isnothing(s)]
+  return [
+    Category(i - 1) for (i, s) in enumerate(s.scores.scores)
+    if isnothing(s)]
 end
 
 is_done(s::State) = isempty(remaining_cats(s))
@@ -188,15 +201,91 @@ function keep_subset(s::DiceConfig)
 end
 
 function available_actions(s::State)
-  if is_chance(s)
+  if is_chance(s.stage)
     return enum_rolls(s.dices)
-  elseif s == CHOOSE_1 || s == CHOOSE_2
-    return
-  elseif s == CHOOSE_CAT
-
+  elseif s.stage == CHOOSE_1 || s.stage == CHOOSE_2
+    return keep_subset(s.dices)
+  elseif s.stage == CHOOSE_CAT
+    return remaining_cats(s)
   end
   @assert false
 end
 
+count_val(v, dices) = count(==(v), dices)
+
+score_upper(dices, val) = count_val(val, dices) * val
+
+has_k_of_a_kind(dices, k) = any(v -> count_val(v, dices) >= k, DICE_VALUES)
+
+score_k(dices, k) = has_k_of_a_kind(dices, k) ? sum(dices) : 0
+
+score_y(dices) = has_k_of_a_kind(dices, 5) ? 50 : 0
+
+const LARGE_STRAIGHTS = map(s -> parse(DiceConfig, s), ["12345", "23456"])
+
+function is_small_straight(dices)
+  has(k) = count_val(k, dices) >= 1
+  hasall(ks) = all(has, ks)
+  return (hasall([1, 2, 3, 4]) || hasall([2, 3, 4, 5]) || hasall([3, 4, 5, 6]))
+end
+
+score_ss(dices) = is_small_straight(dices) : 30 : 0
+
+score_ls(dices) = dices ∈ LARGE_STRAIGHTS : 40 : 0
+
+function score_dices(d::DiceConfig, c::Category)
+  d = d.dices
+  (c == ACES)   && (return score_upper(d, 1))
+  (c == TWOS)   && (return score_upper(d, 2))
+  (c == THREES) && (return score_upper(d, 3))
+  (c == FOURS)  && (return score_upper(d, 4))
+  (c == FIVES)  && (return score_upper(d, 5))
+  (c == SIXES)  && (return score_upper(d, 6))
+  (c == THREE_OF_A_KIND) && (return score_k(d, 3))
+  (c == FOUR_OF_A_KIND) && (return score_k(d, 4))
+  (c == YAHTZEE) && (return score_y(d))
+  (c == SMALL_STRAIGHT) && (return score_ss(d))
+  (c == LARGE_STRAIGHT) && (return score_ls(d))
+  @assert false
+end
+
 function play(s::State, a::Action)
+  @assert a ∈ available_actions(s)
+  scores, dices = s.scores, s.dices
+  if is_chance(s.stage) || s.stage == CHOOSE_1 || s.stage == CHOOSE_2
+    @assert isa(a, DiceConfig)
+    dices = a
+  elseif s.stage == CHOOSE_CAT
+    @assert isa(a, Category)
+    scores = set_catval(scores, a, score_dices(dices, a))
+  end
+  return State(scores, NEXT_STAGE[s.stage], dices)
+end
+
+function prompt(s::State)
+  is_chance(s) ?
+    (crayon"red", "chance> ", crayon"reset") :
+    (crayon"green", "play> ", crayon"reset")
+end
+
+function interactive(s::State=State())
+  history = [s]
+  while !is_done(s)
+    print("\n" ^ 20)
+    println(s)
+    print(prompt(s)...)
+    inp = readline()
+    inp ∈ ["q", "quit"] && break
+    if inp ∈ ["u", "undo"]
+      isempty(history) || (s = pop!(history))
+      continue
+    end
+    try
+      a = parse_action(inp)
+      new_st = play(s, a)
+      push!(history, s)
+      s = new_st
+    catch
+    end
+  end
 end
