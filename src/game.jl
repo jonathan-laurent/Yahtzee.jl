@@ -217,9 +217,14 @@ score_upper(dices, val) = count_val(val, dices) * val
 
 has_k_of_a_kind(dices, k) = any(v -> count_val(v, dices) >= k, DICE_VALUES)
 
+has_exactly_k_of_a_kind(dices, k) = any(v -> count_val(v, dices) == k, DICE_VALUES)
+
 score_k(dices, k) = has_k_of_a_kind(dices, k) ? sum(dices) : 0
 
 score_y(dices) = has_k_of_a_kind(dices, 5) ? 50 : 0
+
+score_f(dices) = has_k_of_a_kind(dices, 5) ||
+                (has_exactly_k_of_a_kind(dices, 3) && has_exactly_k_of_a_kind(dices, 2)) ? 25 : 0
 
 const LARGE_STRAIGHTS = map(s -> parse(DiceConfig, s), ["12345", "23456"])
 
@@ -242,7 +247,9 @@ function score_dices(d::DiceConfig, c::Category)
   (c == FIVES)  && (return score_upper(d, 5))
   (c == SIXES)  && (return score_upper(d, 6))
   (c == THREE_OF_A_KIND) && (return score_k(d, 3))
-  (c == FOUR_OF_A_KIND) && (return score_k(d, 4))
+  (c == FOUR_OF_A_KIND)  && (return score_k(d, 4))
+  (c == FULL_HOUSE) && (return score_f(d))
+  (c == CHANCE)  && (return sum(d))
   (c == YAHTZEE) && (return score_y(d))
   (c == SMALL_STRAIGHT) && (return score_ss(d))
   (c == LARGE_STRAIGHT) && (return score_ls(d))

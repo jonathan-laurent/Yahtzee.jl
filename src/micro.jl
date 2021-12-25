@@ -87,11 +87,11 @@ function score_of_category_state(cat_state::MicroCategoryState)
     if !isnothing(n)
         return dice_values[n]*n
     elseif cat == THREE_OF_A_KIND
-        return any(x -> x >= 3, dice_values) ? sum(i*n for (i,n) in enumerate(dice_values)) : 0
+        return any(>=(3), dice_values) ? sum(i*n for (i,n) in enumerate(dice_values)) : 0
     elseif cat == FOUR_OF_A_KIND
-        return any(x -> x >= 4, dice_values) ? sum(i*n for (i,n) in enumerate(dice_values)) : 0
+        return any(>=(4), dice_values) ? sum(i*n for (i,n) in enumerate(dice_values)) : 0
     elseif cat == FULL_HOUSE
-        return any(x -> x == 3, dice_values) && any(x -> x == 2, dice_values) ? 25 : 0
+        return (any(==(3), dice_values) && any(==(2), dice_values)) || any(==(5), dice_values) ? 25 : 0
     elseif cat == SMALL_STRAIGHT
         for i in 1:3
             if dice_values[i] >= 1 && dice_values[i+1] >= 1 && dice_values[i+2] >= 1 && dice_values[i+3] >= 1
@@ -107,9 +107,9 @@ function score_of_category_state(cat_state::MicroCategoryState)
             end
         end
         return 0
-        #return all(x -> x <= 1, dice_values) && (dice_values[1] == 0 || dice_values[6] == 0) ? 40 : 0
+        #return all(<=(1), dice_values) && (dice_values[1] == 0 || dice_values[6] == 0) ? 40 : 0
     elseif cat == YAHTZEE
-        return any(x -> x >= 5, dice_values) ? 50 : 0
+        return any(>=(5), dice_values) ? 50 : 0
     elseif cat == CHANCE
         return sum(i*n for (i,n) in enumerate(dice_values))
     end
