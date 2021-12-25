@@ -2,7 +2,7 @@ export Category
 export DiceConfig
 export ScoreSheet, State
 export parse_action
-export remaining_cats, is_done
+export remaining_cats, is_done, is_chance
 
 #####
 #####  Categories
@@ -72,10 +72,12 @@ end
 ROLL_AGAIN = 0
 MIN_DICE_VALUE = 1
 MAX_DICE_VALUE = 6
+DICE_VALUES = MIN_DICE_VALUE:MAX_DICE_VALUE
 NUM_DICES = 5
 
 struct DiceConfig
   dices :: SVector{NUM_DICES, Int}
+  DiceConfig(dices) = new(sort(dices))
 end
 
 function Base.parse(::Type{DiceConfig}, s::AbstractString)
@@ -91,7 +93,7 @@ end
 full_config(c::DiceConfig) = all(d > 0 for d in c.dices)
 
 function Base.show(io::IO, c::DiceConfig)
-  print(io, join(string(d) for d in c.dices))
+  print(io, replace(join(string(d) for d in c.dices), "0" => "-"))
 end
 
 ROLL_EVERYTHING = parse(DiceConfig, "-----")
@@ -111,6 +113,10 @@ end
 
 INIT_STAGE = ROLL_1
 
+stage_msg(s::Stage) = replace(string(s), "_" => " ")
+
+is_chance(s::Stage) = s == ROLL_1 || s == ROLL_2 || s == ROLL_3
+
 #####
 #####  State
 #####
@@ -121,27 +127,25 @@ struct State
   dices :: DiceConfig
 end
 
-State() = State(ScoreSheet(), INIT_STAGE, ROLL_EVERYTHING)
+State(s::ScoreSheet) = State(s, INIT_STAGE, ROLL_EVERYTHING)
+State() = State(ScoreSheet())
+
+function Base.show(io::IO, s::State)
+  println(io, s.scores)
+  println(io, "$(stage_msg(s.stage)):  $(s.dices)")
+end
 
 #####
 ##### Actions
 #####
 
-abstract type Action end
-
-struct KeepDices <: Action
-  keep :: DiceConfig
-end
-
-struct ChooseCategory <: Action
-  cat :: Category
-end
+Action = Union{DiceConfig, Category}
 
 function parse_action(s)
   try
-    return KeepDices(parse(DiceConfig, s))
+    return parse(DiceConfig, s)
   catch
-    return ChooseCategory(parse_cat_abbrev(s))
+    return parse_cat_abbrev(s)
   end
 end
 
@@ -153,9 +157,45 @@ function remaining_cats(s::State)
   return [Category(i - 1) for (i, s) in enumerate(s.scores) if isnothing(s)]
 end
 
-is_done(s) = isempty(remaining_cats(s))
+is_done(s::State) = isempty(remaining_cats(s))
+
+is_chance(s::State) = is_chance(s.stage)
+
+function enum_rolls(s::DiceConfig)
+  if ROLL_AGAIN ∉ s.dices
+    return [s]
+  else
+    ds = [
+      DiceConfig(replace(s.dices, ROLL_AGAIN=>v, count=1))
+      for v in DICE_VALUES]
+    ds = [x for d in ds for x in enum_rolls(d)]
+    return collect(Set(ds))
+  end
+end
+
+function keep_subset_aux(dices, i)
+  if i > length(dices)
+    return [dices]
+  else
+    reroll = setindex(dices, ROLL_AGAIN, i)
+    return [keep_subset_aux(reroll, i+1); keep_subset_aux(dices, i+1)]
+  end
+end
+
+function keep_subset(s::DiceConfig)
+  cs = [DiceConfig(c) for c in keep_subset_aux(s.dices, 1)]
+  return collect(Set(cs))
+end
 
 function available_actions(s::State)
+  if is_chance(s)
+    return enum_rolls(s.dices)
+  elseif s == CHOOSE_1 || s == CHOOSE_2
+    return
+  elseif s == CHOOSE_CAT
+
+  end
+  @assert false
 end
 
 function play(s::State, a::Action)
