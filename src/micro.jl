@@ -215,7 +215,7 @@ function fill_graph!(initial::MacroState, g::MicroGame, macro_values)
         if final_macro !== nothing
             v.value = score_of_category_state(s) + macro_values(final_macro)
         else
-            v.value = 0.0
+            v.value = -Inf64
         end
     end
     # Propagate
