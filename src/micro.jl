@@ -9,7 +9,7 @@ struct MicroState
     dice_values::SVector{6,Int8}
 end
 
-MicroFinalState = Tuple{MicroState,Category}
+MicroCategoryState = Tuple{MicroState,Category}
 
 mutable struct MicroActionStateValue
     value::Float64
@@ -21,23 +21,23 @@ mutable struct MicroRandStateValue
     successors::Vector{Tuple{Float64,MicroState}}
 end
 
+mutable struct MicroCategoryStateValue
+    value::Float64
+    successors::Vector{MicroCategoryState}
+end
+
 mutable struct MicroFinalStateValue
     value::Float64
-    successors::Vector{MicroFinalState}
 end
 
-mutable struct MicroFinalValuesStateValue
-    value::Float64
-end
-
-MicroStateValue = Union{MicroActionStateValue, MicroRandStateValue, MicroFinalStateValue, MicroFinalValuesStateValue}
+MicroStateValue = Union{MicroActionStateValue, MicroRandStateValue, MicroCategoryStateValue, MicroFinalStateValue}
 
 MicroActionStep = Dict{MicroState, MicroActionStateValue}
 MicroRandStep = Dict{MicroState, MicroRandStateValue}
-MicroFinalStep = Dict{MicroState, MicroFinalStateValue}
-MicroFinalValuesStep = Dict{MicroFinalState, MicroFinalValuesStateValue}
+MicroCategoryStep = Dict{MicroState, MicroCategoryStateValue}
+MicroFinalStep = Dict{MicroCategoryState, MicroFinalStateValue}
 
-MicroStep = Union{MicroActionStep, MicroRandStep, MicroFinalStep, MicroFinalValuesStep}
+MicroStep = Union{MicroActionStep, MicroRandStep, MicroCategoryStep, MicroFinalStep}
 
 struct MicroGame
     init::MicroState
@@ -46,13 +46,13 @@ struct MicroGame
     rand2::MicroRandStep
     action2::MicroActionStep
     rand3::MicroRandStep
-    final::MicroFinalStep # TODO: rename to action3
-    final_values::MicroFinalValuesStep # TODO: rename to final
+    action3::MicroCategoryStep
+    final::MicroFinalStep
 end
 
 UPPER_CATEGORIES = [ACES, TWOS, THREES, FOURS, FIVES, SIXES]
 
-function micro_final_state_to_macro_state(initial::MacroState, state::MicroFinalState)
+function micro_category_state_to_macro_state(initial::MacroState, state::MicroCategoryState)
     (state, cat) = state
     if is_used(initial, cat)
         return nothing
@@ -65,7 +65,7 @@ function micro_final_state_to_macro_state(initial::MacroState, state::MicroFinal
     return final
 end
 
-function score_of_final_state(state::MicroFinalState)
+function score_of_category_state(state::MicroCategoryState)
     (state, cat) = state
     n = findfirst(x -> x == cat, UPPER_CATEGORIES)
     dice_values = state.dice_values
@@ -166,12 +166,12 @@ function build_graph()
     (rand2, succ) = build_graph_rand_step(succ)
     (action2, succ) = build_graph_action_step(succ)
     (rand3, succ) = build_graph_rand_step(succ)
-    final = Dict((s, MicroFinalStateValue(0.0, [(s, c) for c in instances(Category)])) for s in succ)
-    final_values = Dict(((s,c), MicroFinalValuesStateValue(0.0)) for c in instances(Category) for s in succ)
-    return MicroGame(init, rand1, action1, rand2, action2, rand3, final, final_values)
+    action3 = Dict((s, MicroCategoryStateValue(0.0, [(s, c) for c in instances(Category)])) for s in succ)
+    final = Dict(((s,c), MicroFinalStateValue(0.0)) for c in instances(Category) for s in succ)
+    return MicroGame(init, rand1, action1, rand2, action2, rand3, action3, final)
 end
 
-function propagate_action_step!(step::Union{MicroActionStep,MicroFinalStep}, next_step::MicroStep)
+function propagate_action_step!(step::Union{MicroActionStep,MicroCategoryStep}, next_step::MicroStep)
     for (_, v) in step
         val = 0.0
         for s in v.successors
@@ -195,17 +195,17 @@ end
 
 function fill_graph!(initial::MacroState, g::MicroGame, macro_values)
     # Fill final states
-    for (s,v) in g.final_values
-        final_macro = micro_final_state_to_macro_state(initial, s)
+    for (s,v) in g.final
+        final_macro = micro_category_state_to_macro_state(initial, s)
         if final_macro !== nothing
-            v.value = score_of_final_state(s) + macro_values(final_macro)
+            v.value = score_of_category_state(s) + macro_values(final_macro)
         else
             v.value = 0.0
         end
     end
     # Propagate
-    propagate_action_step!(g.final, g.final_values)
-    propagate_rand_step!(g.rand3, g.final)
+    propagate_action_step!(g.action3, g.final)
+    propagate_rand_step!(g.rand3, g.action3)
     propagate_action_step!(g.action2, g.rand3)
     propagate_rand_step!(g.rand2, g.action2)
     propagate_action_step!(g.action1, g.rand2)
@@ -225,8 +225,8 @@ function best_action(g::MicroGame, s::MicroState, i::Int64)
         step = g.action2
         next_step = g.rand3
     else
-        step = g.final
-        next_step = g.final_values
+        step = g.action3
+        next_step = g.final
     end
     return argmax(((_,v),) -> v, (ss,next_step[ss].value) for ss in step[s].successors)
 end

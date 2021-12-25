@@ -21,8 +21,8 @@ function test()
     end
     @assert total_p > 0.9999999 && total_p < 1.0000001
 
-    @assert length(g.final) == binomial(6+5-1,5)
-    for (k,v) in g.final
+    @assert length(g.action3) == binomial(6+5-1,5)
+    for (k,v) in g.action3
         @assert k.to_draw == 0
     end
 
