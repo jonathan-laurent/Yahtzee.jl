@@ -1,6 +1,6 @@
 export Category
 export DiceConfig
-export PlayerState, MultiPlayerState
+export ScoreSheet, State
 export parse_action
 export remaining_cats, is_done
 
@@ -45,6 +45,25 @@ CAT_ABBREV_REV = Dict(a=>c for (c, a) in CAT_ABBREV)
 
 parse_cat_abbrev(s::String) = CAT_ABBREV_REV[s]
 cat_abbrev(c::Category) = CAT_ABBREV[c]
+
+#####
+#####  ScoreSheet
+#####
+
+struct ScoreSheet
+  scores :: SVector{NUM_CATEGORIES, Union{Int, Nothing}}
+end
+
+ScoreSheet() = ScoreSheet(@SVector[nothing for _ in instances(Category)])
+
+catval(s::ScoreSheet, c::Category) = s.scores[Int(c) + 1]
+
+function Base.show(io::IO, s::ScoreSheet)
+  score(s) = isnothing(s) ? "" : string(s)
+  data = [score(catval(s, c)) for c in instances(Category)]
+  header = [cat_abbrev(c) for c in instances(Category)]
+  pretty_table(io, permutedims(data); header)
+end
 
 #####
 #####  Dice configurations
@@ -92,40 +111,17 @@ end
 
 INIT_STAGE = ROLL_1
 
-struct PlayerState
-  scores :: SVector{NUM_CATEGORIES, Union{Int, Nothing}}
+#####
+#####  State
+#####
+
+struct State
+  scores :: ScoreSheet
   stage :: Stage
   dices :: DiceConfig
 end
 
-catval(s::PlayerState, c::Category) = s.scores[Int(c) + 1]
-
-#####
-#####  Dice configurations
-#####
-
-function PlayerState()
-  scores = @SVector[nothing for _ in instances(Category)]
-  return PlayerState(scores, INIT_STAGE, ROLL_EVERYTHING)
-end
-
-struct MultiPlayerState
-  players :: Vector{Tuple{String, PlayerState}}
-end
-
-function Base.show(io::IO, s::MultiPlayerState)
-  score(s) = isnothing(s) ? "" : string(s)
-  data = [
-    score(catval(s, c))
-    for c in instances(Category), (_ , s) in s.players]
-  data = hcat([string(c) for c in instances(Category)], data)
-  header = [" "; [name for (name, _) in s.players]]
-  pretty_table(io, data; header)
-end
-
-function Base.show(io::IO, s::PlayerState)
-  show(io, MultiPlayerState([("Score", s)]))
-end
+State() = State(ScoreSheet(), INIT_STAGE, ROLL_EVERYTHING)
 
 #####
 ##### Actions
@@ -153,14 +149,14 @@ end
 ##### Game
 #####
 
-function remaining_cats(s::PlayerState)
+function remaining_cats(s::State)
   return [Category(i - 1) for (i, s) in enumerate(s.scores) if isnothing(s)]
 end
 
 is_done(s) = isempty(remaining_cats(s))
 
-function available_actions(s::PlayerState)
+function available_actions(s::State)
 end
 
-function play(s::PlayerState, a::Action)
+function play(s::State, a::Action)
 end
