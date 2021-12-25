@@ -1,7 +1,7 @@
 
 using StaticArrays
 
-export build_graph, fill_graph!, value_of_initial_state
+export build_graph, fill_graph!, value_of_initial_state, best_action
 export MicroState
 
 struct MicroState
@@ -26,13 +26,18 @@ mutable struct MicroFinalStateValue
     successors::Vector{MicroFinalState}
 end
 
-MicroStateValue = Union{MicroActionStateValue, MicroRandStateValue, MicroFinalStateValue}
+mutable struct MicroFinalValuesStateValue
+    value::Float64
+end
+
+MicroStateValue = Union{MicroActionStateValue, MicroRandStateValue, MicroFinalStateValue, MicroFinalValuesStateValue}
 
 MicroActionStep = Dict{MicroState, MicroActionStateValue}
 MicroRandStep = Dict{MicroState, MicroRandStateValue}
 MicroFinalStep = Dict{MicroState, MicroFinalStateValue}
+MicroFinalValuesStep = Dict{MicroFinalState, MicroFinalValuesStateValue}
 
-MicroStep = Union{MicroActionStep, MicroRandStep, MicroFinalStep}
+MicroStep = Union{MicroActionStep, MicroRandStep, MicroFinalStep, MicroFinalValuesStep}
 
 struct MicroGame
     init::MicroState
@@ -41,7 +46,8 @@ struct MicroGame
     rand2::MicroRandStep
     action2::MicroActionStep
     rand3::MicroRandStep
-    final::MicroFinalStep
+    final::MicroFinalStep # TODO: rename to action3
+    final_values::MicroFinalValuesStep # TODO: rename to final
 end
 
 UPPER_CATEGORIES = [ACES, TWOS, THREES, FOURS, FIVES, SIXES]
@@ -103,7 +109,7 @@ end
 function rand_step_successors(state::MicroState)
     succ = Dict([(state, 1)])
     for _ in 1:state.to_draw
-        new_succ = Dict{MicroState,Int32}()
+        new_succ = Dict{MicroState,Int64}()
         for (s,c) in succ
             for ss in draw_one(s)
                 cc = haskey(new_succ, ss) ? new_succ[ss] : 0
@@ -161,10 +167,11 @@ function build_graph()
     (action2, succ) = build_graph_action_step(succ)
     (rand3, succ) = build_graph_rand_step(succ)
     final = Dict((s, MicroFinalStateValue(0.0, [(s, c) for c in instances(Category)])) for s in succ)
-    return MicroGame(init, rand1, action1, rand2, action2, rand3, final)
+    final_values = Dict(((s,c), MicroFinalValuesStateValue(0.0)) for c in instances(Category) for s in succ)
+    return MicroGame(init, rand1, action1, rand2, action2, rand3, final, final_values)
 end
 
-function propagate_action_step!(step::MicroActionStep, next_step::MicroStep)
+function propagate_action_step!(step::Union{MicroActionStep,MicroFinalStep}, next_step::MicroStep)
     for (_, v) in step
         val = 0.0
         for s in v.successors
@@ -188,18 +195,16 @@ end
 
 function fill_graph!(initial::MacroState, g::MicroGame, macro_values)
     # Fill final states
-    for (_,v) in g.final
-        val = 0.0
-        for s in v.successors
-            final_macro = micro_final_state_to_macro_state(initial, s)
-            if final_macro !== nothing
-                score = score_of_final_state(s) + macro_values(final_macro)
-                val = max(val, score)
-            end
+    for (s,v) in g.final_values
+        final_macro = micro_final_state_to_macro_state(initial, s)
+        if final_macro !== nothing
+            v.value = score_of_final_state(s) + macro_values(final_macro)
+        else
+            v.value = 0.0
         end
-        v.value = val
     end
     # Propagate
+    propagate_action_step!(g.final, g.final_values)
     propagate_rand_step!(g.rand3, g.final)
     propagate_action_step!(g.action2, g.rand3)
     propagate_rand_step!(g.rand2, g.action2)
@@ -209,4 +214,19 @@ end
 
 function value_of_initial_state(g::MicroGame)
     return g.rand1[g.init].value;
+end
+
+function best_action(g::MicroGame, s::MicroState, i::Int64)
+    @assert i == 1 || i == 2 || i == 3
+    if i == 1
+        step = g.action1
+        next_step = g.rand2
+    elseif i == 2
+        step = g.action2
+        next_step = g.rand3
+    else
+        step = g.final
+        next_step = g.final_values
+    end
+    return argmax(((_,v),) -> v, (ss,next_step[ss].value) for ss in step[s].successors)
 end

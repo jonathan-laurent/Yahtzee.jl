@@ -29,18 +29,10 @@ function test()
     # Graph filling
     fill_graph!(INITIAL_MACROSTATE, g, _ -> 0)
     println(value_of_initial_state(g))
-
     state = MicroState(0, SVector(1,1,0,0,0,3))
-    max_v = 0
-    max_dices = nothing
-    for s in g.action1[state].successors
-        v = g.rand2[s].value
-        if v > max_v
-            max_v = v
-            max_dices = s.dice_values
-        end
-    end
-    println(max_dices)
+    println(best_action(g, state, 1))
+    println(best_action(g, state, 2))
+    println(best_action(g, state, 3))
 end
 
 test()
