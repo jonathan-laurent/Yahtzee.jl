@@ -9,3 +9,5 @@ st = add_upper_sec(st, 4)
 st = add_upper_sec(st, 60)
 
 a = parse_action("4k")
+
+compute_value_table()
