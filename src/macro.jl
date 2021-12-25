@@ -1,7 +1,7 @@
 export MacroState, INITIAL_MACROSTATE
 export upper_sec_total, set_upper_sec_total, add_upper_sec
 export is_used, set_used
-export compute_value_table
+export compute_value_table, value_of_macro_state, best_action_for
 
 using ThreadsX
 
@@ -64,14 +64,12 @@ function enumerate_states_of_turn(n::Int64)
   return (MacroState(i) for i in 0:NUM_MACROSTATE-1 if num_used(MacroState(i)) == n)
 end
 
-function compute_value_for(table, g, s)
+function fill_graph_for!(table, g, s)
   fill_graph!(s, g, ss -> table[ss.val+1])
-  table[s.val+1] = value_of_initial_state(g)
 end
 
-function compute_value_table()
+function compute_value_table(g::MicroGame)
   table = Array{Float64}(undef, NUM_MACROSTATE)
-  g = build_graph()
 
   for s in enumerate_states_of_turn(NUM_CATEGORIES)
     table[s.val+1] = upper_sec_total(s) >= 63 ? 35 : 0
@@ -79,9 +77,19 @@ function compute_value_table()
   println("Leaves initialized.")
   for i in NUM_CATEGORIES-1:-1:0
     ThreadsX.foreach(enumerate_states_of_turn(i)) do s
-      compute_value_for(table, g, s)
+      fill_graph_for!(table, g, s)
+      table[s.val+1] = value_of_initial_state(g)
     end
     println(i)
   end
   return table
+end
+
+function value_of_macro_state(table::Vector{Float64}, s::MacroState)
+  return table[s.val+1]
+end
+
+function best_action_for(table::Vector{Float64}, g::MicroGame, s::MacroState, ss::MicroState, i::Int64)
+  fill_graph_for!(table, g, s)
+  return best_action(g, ss, i)
 end

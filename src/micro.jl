@@ -10,6 +10,10 @@ struct MicroState
     dice_values::SVector{6,Int8}
 end
 
+MicroState(one::Int64,two::Int64,three::Int64,four::Int64,five::Int64,six::Int64) =
+    MicroState(Int8(5-(one+two+three+four+five+six)),
+        SVector(Int8(one), Int8(two), Int8(three), Int8(four), Int8(five), Int8(six)))
+
 MicroCategoryState = Tuple{MicroState,Category}
 
 mutable struct MicroActionStateValue
