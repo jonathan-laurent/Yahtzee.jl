@@ -80,8 +80,8 @@ function micro_category_state_to_macro_state(initial::MacroState, cat_state::Mic
     return final
 end
 
-function score_of_category_state(state::MicroCategoryState)
-    (state, cat) = state
+function score_of_category_state(cat_state::MicroCategoryState)
+    (state, cat) = cat_state
     n = findfirst(==(cat), UPPER_CATEGORIES)
     dice_values = state.dice_values
     if !isnothing(n)
