@@ -188,7 +188,7 @@ end
 
 function propagate_action_step!(step::Union{MicroActionStep,MicroCategoryStep}, next_step::MicroStep)
     for (_, v) in step
-        val = 0.0
+        val = -Inf64
         for s in v.successors
             score = next_step[s].value
             val = max(val, score)
