@@ -27,7 +27,8 @@ function test()
     end
 
     # Graph filling
-    fill_graph!(INITIAL_MACROSTATE, g)
+    fill_graph!(INITIAL_MACROSTATE, g, _ -> 0)
+    println(value_of_initial_state(g))
 
     state = MicroState(0, SVector(1,1,0,0,0,3))
     max_v = 0

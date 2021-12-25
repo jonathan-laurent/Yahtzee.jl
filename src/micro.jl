@@ -1,7 +1,7 @@
 
 using StaticArrays
 
-export build_graph, fill_graph!
+export build_graph, fill_graph!, value_of_initial_state
 export MicroState
 
 struct MicroState
@@ -186,14 +186,14 @@ function propagate_rand_step!(step::MicroRandStep, next_step::MicroStep)
     end
 end
 
-function fill_graph!(initial::MacroState, g::MicroGame)
+function fill_graph!(initial::MacroState, g::MicroGame, macro_values)
     # Fill final states
     for (_,v) in g.final
         val = 0.0
         for s in v.successors
             final_macro = micro_final_state_to_macro_state(initial, s)
             if final_macro !== nothing
-                score = score_of_final_state(s) #+ score_of_macro(final_macro)
+                score = score_of_final_state(s) + macro_values(final_macro)
                 val = max(val, score)
             end
         end
@@ -205,4 +205,8 @@ function fill_graph!(initial::MacroState, g::MicroGame)
     propagate_rand_step!(g.rand2, g.action2)
     propagate_action_step!(g.action1, g.rand2)
     propagate_rand_step!(g.rand1, g.action1)
+end
+
+function value_of_initial_state(g::MicroGame)
+    return g.rand1[g.init].value;
 end
