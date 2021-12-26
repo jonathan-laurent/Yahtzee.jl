@@ -81,7 +81,7 @@ function interactive(s::State=State(), table::Union{Nothing,Vector{Float64}}=not
       default = nothing
       if !isnothing(pred)
         (str, default) = pred
-        println(str)
+        println("$(str)\n")
       end
       print(prompt(s)...)
       inp = readline()

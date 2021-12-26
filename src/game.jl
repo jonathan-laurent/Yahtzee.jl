@@ -59,8 +59,8 @@ end
 
 ScoreSheet() = ScoreSheet(@SVector[nothing for _ in instances(Category)])
 
-ScoreSheet(ones,twos,threes,fours,fives,sixes,tk,fk,ss,ls,y,c) =
-  SVector{13, Union{Int, Nothing}}(ones,twos,threes,fours,fives,sixes,tk,fk,ss,ls,y,c)
+ScoreSheet(ones,twos,threes,fours,fives,sixes,tk,fk,f,ss,ls,y,c) =
+  ScoreSheet(SVector{13, Union{Int, Nothing}}(ones,twos,threes,fours,fives,sixes,tk,fk,f,ss,ls,y,c))
 
 catval(s::ScoreSheet, c::Category) = s.scores[Int(c) + 1]
 
@@ -73,6 +73,8 @@ function Base.show(io::IO, s::ScoreSheet)
   header = [cat_abbrev(c) for c in instances(Category)]
   pretty_table(io, permutedims(data); header)
 end
+
+full_config(s::ScoreSheet) = all(!isnothing(d) for d in s.scores)
 
 #####
 #####  Dice configurations
@@ -99,7 +101,7 @@ function Base.parse(::Type{DiceConfig}, s::AbstractString)
   return DiceConfig(SVector{NUM_DICES}(digits))
 end
 
-full_config(c::DiceConfig) = all(!isnothing(d) for d in c.dices)
+full_config(c::DiceConfig) = all(d > 0 for d in c.dices)
 
 function Base.show(io::IO, c::DiceConfig)
   print(io, replace(join(string(d) for d in c.dices), "0" => "-"))
@@ -281,7 +283,7 @@ function upper_score(s::State)
 end
 
 function upper_bonus(s::State)
-  return upper_score(s) >= 63 && full_config(s) ? 35 : 0
+  return upper_score(s) >= 63 && full_config(s.scores) ? 35 : 0
 end
 
 function total_score(s::State)

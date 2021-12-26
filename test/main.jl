@@ -11,4 +11,5 @@ if isfile("expected_values.bin")
     table=deserialize("expected_values.bin")
 end
 
+#Yahtzee.interactive(State(ScoreSheet(nothing,4,6,16,15,24,27,nothing,25,30,40,50,25)), table)
 Yahtzee.interactive(State(), table)
