@@ -1,3 +1,5 @@
+using Printf
+
 export remaining_cats, is_done, is_chance, play, interactive
 
 const NB_SUGGESTIONS = 5
@@ -55,7 +57,7 @@ function suggestions_for_state(table::Vector{Float64}, g::MicroGame, state::Stat
   (s, ss, i) = state_to_macro_micro(state)
   if is_chance(state)
       v = value_of_rand_state(table, g, s, ss, i) + total_score(state)
-      return ("Expected value: $(v)", nothing)
+      return ((@sprintf "Expected value: %.2f" v), nothing)
   else
       actions = best_k_actions_for(table, g, s, ss, i, NB_SUGGESTIONS)
       str = ["Suggested actions:"]
@@ -65,13 +67,13 @@ function suggestions_for_state(table::Vector{Float64}, g::MicroGame, state::Stat
           ((_,c), v) = r
           v += total_score(state)
           nb == 1 && (d = c)
-          push!(str, "$(cat_abbrev(c)) (expected value: $(v))")
+          push!(str, @sprintf "%s (expected value: %.2f)" (cat_abbrev(c)) v)
         else
           (ms, v) = r
           dc = micro_state_to_dice_config(ms)
           v += total_score(state)
           nb == 1 && (d = dc)
-          push!(str, "$(dc) (expected value: $(v))")
+          push!(str, @sprintf "%s (expected value: %.2f)" dc v)
         end
       end
       return (join(str, "\n"), d)
