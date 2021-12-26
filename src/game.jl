@@ -3,6 +3,7 @@ export DiceConfig
 export ScoreSheet, State
 export parse_action, cat_abbrev
 export remaining_cats, is_done, is_chance, play
+export upper_score, total_score, upper_bonus
 
 #####
 #####  Categories
@@ -58,6 +59,9 @@ end
 
 ScoreSheet() = ScoreSheet(@SVector[nothing for _ in instances(Category)])
 
+ScoreSheet(ones,twos,threes,fours,fives,sixes,tk,fk,ss,ls,y,c) =
+  SVector{13, Union{Int, Nothing}}(ones,twos,threes,fours,fives,sixes,tk,fk,ss,ls,y,c)
+
 catval(s::ScoreSheet, c::Category) = s.scores[Int(c) + 1]
 
 set_catval(s::ScoreSheet, c::Category, v) =
@@ -95,7 +99,7 @@ function Base.parse(::Type{DiceConfig}, s::AbstractString)
   return DiceConfig(SVector{NUM_DICES}(digits))
 end
 
-full_config(c::DiceConfig) = all(d > 0 for d in c.dices)
+full_config(c::DiceConfig) = all(!isnothing(d) for d in c.dices)
 
 function Base.show(io::IO, c::DiceConfig)
   print(io, replace(join(string(d) for d in c.dices), "0" => "-"))
@@ -228,7 +232,7 @@ score_y(dices) = has_k_of_a_kind(dices, 5) ? 50 : 0
 score_f(dices) = has_k_of_a_kind(dices, 5) ||
                 (has_exactly_k_of_a_kind(dices, 3) && has_exactly_k_of_a_kind(dices, 2)) ? 25 : 0
 
-const LARGE_STRAIGHTS = map(s -> parse(DiceConfig, s), ["12345", "23456"])
+const LARGE_STRAIGHTS = map(s -> parse(DiceConfig, s).dices, ["12345", "23456"])
 
 function is_small_straight(dices)
   has(k) = count_val(k, dices) >= 1
@@ -272,8 +276,15 @@ function play(s::State, a::Action)
   return State(scores, NEXT_STAGE[s.stage], dices)
 end
 
-function prompt(s::State)
-  is_chance(s) ?
-    (crayon"red", "chance> ", crayon"reset") :
-    (crayon"green", "play> ", crayon"reset")
+function upper_score(s::State)
+  return sum(catval(s.scores, c) for c in UPPER_CATEGORIES if !isnothing(catval(s.scores, c)); init=0)
+end
+
+function upper_bonus(s::State)
+  return upper_score(s) >= 63 && full_config(s) ? 35 : 0
+end
+
+function total_score(s::State)
+  score = sum(catval(s.scores, c) for c in instances(Category) if !isnothing(catval(s.scores, c)); init=0)
+  return score + upper_bonus(s)
 end

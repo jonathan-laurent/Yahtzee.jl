@@ -1,5 +1,11 @@
 export remaining_cats, is_done, is_chance, play, interactive
 
+function prompt(s::State)
+  is_chance(s) ?
+    (crayon"red", "chance> ", crayon"reset") :
+    (crayon"green", "play> ", crayon"reset")
+end
+
 function state_to_macro_micro(s::State)
     i = 0
     s.stage == CHOOSE_1 && (i = 1)
@@ -25,8 +31,7 @@ function state_to_macro_micro(s::State)
         m = set_used(m, c)
       end
     end
-    score = sum(catval(s.scores, c) for c in UPPER_CATEGORIES if !isnothing(catval(s.scores, c)); init=0)
-    m = set_upper_sec_total(m, score)
+    m = set_upper_sec_total(m, upper_score(s))
   
     return (m, ss, i)
   end
@@ -51,17 +56,19 @@ function interactive(s::State=State(), table::Union{Nothing,Vector{Float64}}=not
       prediction = function (state)
         (st, ss, i) = state_to_macro_micro(state)
         if is_chance(state)
-            v = value_of_rand_state(table, g, st, ss, i)
-            return ("expected value: $(v)", nothing)
+            v = value_of_rand_state(table, g, st, ss, i) + total_score(state)
+            return ("Expected value: $(v)", nothing)
         else
             res = best_action_for(table, g, st, ss, i)
             if i == 3
                 ((_,c), v) = res
-                return ("$(cat_abbrev(c)) (expected value: $(v))", c)
+                v += total_score(state)
+                return ("Recommended action: $(cat_abbrev(c)) (expected value: $(v))", c)
             else
                 (ms, v) = res
                 dc = micro_state_to_dice_config(ms)
-                return ("$(dc) (expected value: $(v))", dc)
+                v += total_score(state)
+                return ("Recommended action: $(dc) (expected value: $(v))", dc)
             end
         end
       end
@@ -74,7 +81,7 @@ function interactive(s::State=State(), table::Union{Nothing,Vector{Float64}}=not
       default = nothing
       if !isnothing(pred)
         (str, default) = pred
-        println("Recommended action: $(str)")
+        println(str)
       end
       print(prompt(s)...)
       inp = readline()
