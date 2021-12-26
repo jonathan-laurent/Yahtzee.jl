@@ -6,8 +6,8 @@ using BenchmarkTools
 
 function test()
     g = build_graph()
-    @btime fill_graph!($INITIAL_MACROSTATE, $g, _ -> 0)
-    #ProfileView.@profview fill_graph!(INITIAL_MACROSTATE, g, _ -> 0)
+    @btime fill_graph!($INITIAL_MACROSTATE, $g, _ -> Stat())
+    #ProfileView.@profview fill_graph!(INITIAL_MACROSTATE, g, _ -> Stat())
 end
 
 test()

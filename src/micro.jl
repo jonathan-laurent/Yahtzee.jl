@@ -1,9 +1,18 @@
 
 using StaticArrays
+using StatsBase
 
 export build_graph, fill_graph!
-export value_of_initial_state, value_of_rand_state, best_action, best_k_actions, micro_category_state_to_macro_state
-export MicroState, MicroGame
+export stat_of_initial_state, stat_of_rand_state, best_action, best_k_actions, micro_category_state_to_macro_state
+export MicroState, MicroGame, Stat
+
+mutable struct Stat
+    value::Float64
+    variance::Float64
+end
+
+Stat() = Stat(0,0)
+Stat(s::Stat) = Stat(s.value,s.variance)
 
 struct MicroState
     to_draw::Int8
@@ -16,23 +25,23 @@ MicroState(one::Int64,two::Int64,three::Int64,four::Int64,five::Int64,six::Int64
 
 MicroCategoryState = Tuple{MicroState,Category}
 
-mutable struct MicroActionStateValue
-    value::Float64
+struct MicroActionStateValue
+    stat::Stat
     successors::Vector{MicroState}
 end
 
-mutable struct MicroRandStateValue
-    value::Float64
+struct MicroRandStateValue
+    stat::Stat
     successors::Vector{Tuple{Float64,MicroState}}
 end
 
-mutable struct MicroCategoryStateValue
-    value::Float64
+struct MicroCategoryStateValue
+    stat::Stat
     successors::Vector{MicroCategoryState}
 end
 
-mutable struct MicroFinalStateValue
-    value::Float64
+struct MicroFinalStateValue
+    stat::Stat
 end
 
 MicroStateValue = Union{MicroActionStateValue, MicroRandStateValue, MicroCategoryStateValue, MicroFinalStateValue}
@@ -157,7 +166,7 @@ function build_graph_action_step(succ::Set{MicroState})
     new_succ = Set{MicroState}()
     for s in succ
         cur_succ = action_step_successors(s)
-        r[s] = MicroActionStateValue(0.0, collect(cur_succ))
+        r[s] = MicroActionStateValue(Stat(), collect(cur_succ))
         new_succ = union(new_succ, cur_succ)
     end
     return (r, new_succ)
@@ -169,7 +178,7 @@ function build_graph_rand_step(succ::Set{MicroState})
     for s in succ
         cur_succ = rand_step_successors(s)
         total_card = sum(v for (_,v) in cur_succ)
-        r[s] = MicroRandStateValue(0.0, [(v/total_card, k) for (k,v) in cur_succ])
+        r[s] = MicroRandStateValue(Stat(), [(v/total_card, k) for (k,v) in cur_succ])
         cur_succ = Set(k for (k,_) in cur_succ)
         new_succ = union(new_succ, cur_succ)
     end
@@ -183,41 +192,41 @@ function build_graph()
     (rand2, succ) = build_graph_rand_step(succ)
     (action2, succ) = build_graph_action_step(succ)
     (rand3, succ) = build_graph_rand_step(succ)
-    action3 = Dict((s, MicroCategoryStateValue(0.0, [(s, c) for c in instances(Category)])) for s in succ)
-    final = Dict(((s,c), MicroFinalStateValue(0.0)) for c in instances(Category) for s in succ)
+    action3 = Dict((s, MicroCategoryStateValue(Stat(), [(s, c) for c in instances(Category)])) for s in succ)
+    final = Dict(((s,c), MicroFinalStateValue(Stat())) for c in instances(Category) for s in succ)
     return MicroGame(init, rand1, action1, rand2, action2, rand3, action3, final)
 end
 
 function propagate_action_step!(step::Union{MicroActionStep,MicroCategoryStep}, next_step::MicroStep)
     for (_, v) in step
-        val = -Inf64
-        for s in v.successors
-            score = next_step[s].value
-            val = max(val, score)
-        end
-        v.value = val
+        stat = argmax(v -> v.value, next_step[s].stat for s in v.successors)
+        v.stat.value = stat.value
+        v.stat.variance = stat.variance
     end
 end
 
 function propagate_rand_step!(step::MicroRandStep, next_step::MicroStep)
     for (_, v) in step
-        val = 0.0
-        for (p,s) in v.successors
-            score = next_step[s].value
-            val += p*score;
-        end
-        v.value = val
+        succs = [s for s in v.successors]
+        ps = Weights([p for (p,_) in succs])
+        es = [next_step[s].stat.value for (_,s) in succs]
+        vs = [next_step[s].stat.variance for (_,s) in succs]
+        v.stat.value = StatsBase.mean(es, ps)
+        v.stat.variance = StatsBase.varm(es, ps, v.stat.value, corrected=false) + StatsBase.mean(vs, ps)
     end
 end
 
-function fill_graph!(initial::MacroState, g::MicroGame, macro_values)
+function fill_graph!(initial::MacroState, g::MicroGame, macro_stats)
     # Fill final states
     for (s,v) in g.final
         final_macro = micro_category_state_to_macro_state(initial, s)
         if !isnothing(final_macro)
-            v.value = score_of_category_state(s) + macro_values(final_macro)
+            stat = macro_stats(final_macro)
+            v.stat.value = score_of_category_state(s) + stat.value
+            v.stat.variance = stat.variance
         else
-            v.value = -Inf64
+            v.stat.value = -Inf64
+            v.stat.variance = 0.0
         end
     end
     # Propagate
@@ -229,11 +238,11 @@ function fill_graph!(initial::MacroState, g::MicroGame, macro_values)
     propagate_rand_step!(g.rand1, g.action1)
 end
 
-function value_of_initial_state(g::MicroGame)
-    return g.rand1[g.init].value
+function stat_of_initial_state(g::MicroGame)
+    return Stat(g.rand1[g.init].stat)
 end
 
-function value_of_rand_state(g::MicroGame, s::MicroState, i::Int64)
+function stat_of_rand_state(g::MicroGame, s::MicroState, i::Int64)
     @assert i == 1 || i == 2 || i == 3
     if i == 1
         step = g.rand1
@@ -242,7 +251,7 @@ function value_of_rand_state(g::MicroGame, s::MicroState, i::Int64)
     else
         step = g.rand3
     end
-    return step[s].value
+    return Stat(step[s].stat)
 end
 
 function actions(g::MicroGame, s::MicroState, i::Int64)
@@ -257,16 +266,16 @@ function actions(g::MicroGame, s::MicroState, i::Int64)
         step = g.action3
         next_step = g.final
     end
-    return [(ss,next_step[ss].value) for ss in step[s].successors]
+    return [(ss,Stat(next_step[ss].stat)) for ss in step[s].successors]
 end
 
 function best_k_actions(g::MicroGame, s::MicroState, i::Int64, k::Int64)
     a = actions(g,s,i)
-    sort!(a, by=((_,v),) -> v, rev=true)
+    sort!(a, by=((_,v),) -> v.value, rev=true)
     return a[1:min(k,length(a))]
 end
 
 function best_action(g::MicroGame, s::MicroState, i::Int64)
     a = actions(g,s,i)
-    return argmax(((_,v),) -> v, a)
+    return argmax(((_,v),) -> v.value, a)
 end

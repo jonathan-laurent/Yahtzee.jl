@@ -53,25 +53,25 @@ function micro_state_to_dice_config(s::MicroState)
     return DiceConfig(SVector{NUM_DICES}(p))
 end
 
-function suggestions_for_state(table::Vector{Float64}, g::MicroGame, state::State)
+function suggestions_for_state(table::Vector{Stat}, g::MicroGame, state::State)
   (s, ss, i) = state_to_macro_micro(state)
   if is_chance(state)
-      v = value_of_rand_state(table, g, s, ss, i) + total_score(state)
-      return ((@sprintf "Expected value: %.2f" v), nothing)
+      stat = stat_of_rand_state(table, g, s, ss, i) + total_score(state)
+      return ((@sprintf "Expected value: %.2f" stat.value), nothing)
   else
       actions = best_k_actions_for(table, g, s, ss, i, NB_SUGGESTIONS)
       str = ["Suggested actions:"]
       d = nothing
       for (nb,r) in enumerate(actions)
         if i == 3
-          ((_,c), v) = r
-          v += total_score(state)
+          ((_,c), stat) = r
+          v = stat.value + total_score(state)
           nb == 1 && (d = c)
           push!(str, @sprintf "%s (expected value: %.2f)" (cat_abbrev(c)) v)
         else
-          (ms, v) = r
+          (ms, stat) = r
           dc = micro_state_to_dice_config(ms)
-          v += total_score(state)
+          v = stat.value + total_score(state)
           nb == 1 && (d = dc)
           push!(str, @sprintf "%s (expected value: %.2f)" dc v)
         end
@@ -80,7 +80,7 @@ function suggestions_for_state(table::Vector{Float64}, g::MicroGame, state::Stat
   end
 end
 
-function interactive(s::State=State(), table::Union{Nothing,Vector{Float64}}=nothing)
+function interactive(s::State=State(), table::Union{Nothing,Vector{Stat}}=nothing)
     prediction = _ -> nothing
     if !isnothing(table)
       g = build_graph()

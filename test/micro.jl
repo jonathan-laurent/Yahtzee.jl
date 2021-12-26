@@ -29,9 +29,9 @@ function test()
     # Graph filling
     macro_st = INITIAL_MACROSTATE
     macro_st = set_used(macro_st, Yahtzee.SMALL_STRAIGHT)
-    fill_graph!(macro_st, g, _ -> 0)
-    println(value_of_initial_state(g))
-    state = MicroState(3,1,1,0,0,0)
+    fill_graph!(macro_st, g, _ -> Stat())
+    println(stat_of_initial_state(g).value)
+    state = MicroState(0,1,1,0,0,3)
     println(best_action(g, state, 1))
     println(best_action(g, state, 2))
     (st, v) = best_action(g, state, 3)
