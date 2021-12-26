@@ -3,7 +3,7 @@ using StaticArrays
 
 export build_graph, fill_graph!
 export value_of_initial_state, best_action, micro_category_state_to_macro_state
-export MicroState
+export MicroState, MicroGame
 
 struct MicroState
     to_draw::Int8
@@ -68,8 +68,6 @@ function Base.show(io::IO, s::MicroState)
     str = join(dices, "")
     print(io, str)
   end
-
-const UPPER_CATEGORIES = [ACES, TWOS, THREES, FOURS, FIVES, SIXES]
 
 function micro_category_state_to_macro_state(initial::MacroState, cat_state::MicroCategoryState)
     (state, cat) = cat_state

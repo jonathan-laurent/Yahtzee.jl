@@ -20,5 +20,5 @@ g = build_graph()
 
 table = deserialize("expected_values.bin")
 println(value_of_macro_state(table, INITIAL_MACROSTATE))
-ss = MicroState(3,1,1,0,0,0)
+ss = MicroState(3,0,1,0,0,1)
 println(best_action_for(table, g, INITIAL_MACROSTATE, ss, 1))

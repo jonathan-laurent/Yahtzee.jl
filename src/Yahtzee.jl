@@ -7,6 +7,7 @@ module Yahtzee
   include("game.jl")
   include("macro.jl")
   include("micro.jl")
+  include("solver.jl")
   include("ui.jl")
 
 end

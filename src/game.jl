@@ -1,8 +1,8 @@
-export Category
+export Category, UPPER_CATEGORIES
 export DiceConfig
 export ScoreSheet, State
 export parse_action
-export remaining_cats, is_done, is_chance, play, interactive
+export remaining_cats, is_done, is_chance, play
 
 #####
 #####  Categories
@@ -23,6 +23,8 @@ export remaining_cats, is_done, is_chance, play, interactive
   YAHTZEE
   CHANCE
 end
+
+const UPPER_CATEGORIES = [ACES, TWOS, THREES, FOURS, FIVES, SIXES]
 
 const NUM_CATEGORIES = length(instances(Category))
 
@@ -273,26 +275,4 @@ function prompt(s::State)
   is_chance(s) ?
     (crayon"red", "chance> ", crayon"reset") :
     (crayon"green", "play> ", crayon"reset")
-end
-
-function interactive(s::State=State())
-  history = [s]
-  while !is_done(s)
-    print("\n" ^ 20)
-    println(s)
-    print(prompt(s)...)
-    inp = readline()
-    inp ∈ ["q", "quit"] && break
-    if inp ∈ ["u", "undo"]
-      isempty(history) || (s = pop!(history))
-      continue
-    end
-    try
-      a = parse_action(inp)
-      new_st = play(s, a)
-      push!(history, s)
-      s = new_st
-    catch
-    end
-  end
 end
