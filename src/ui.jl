@@ -81,7 +81,11 @@ function interactive(s::State=State(), table::Union{Nothing,Vector{Float64}}=not
       end
       try
         if isempty(inp)
-            a = default
+            if is_chance(s)
+                a = s.dices
+            else
+                a = default
+            end
         else
             a = parse_action(inp)
         end
