@@ -1,4 +1,4 @@
-export compute_value_table, value_of_macro_state, value_of_rand_state, best_action_for
+export compute_value_table, value_of_macro_state, value_of_rand_state, best_action_for, best_k_actions_for
 
 function fill_graph_for!(table, g, s)
     fill_graph!(s, g, ss -> table[ss.val+1])
@@ -30,6 +30,11 @@ function value_of_rand_state(table::Vector{Float64}, g::MicroGame, s::MacroState
     return value_of_rand_state(g, ss, i)
 end
   
+function best_k_actions_for(table::Vector{Float64}, g::MicroGame, s::MacroState, ss::MicroState, i::Int64, k::Int64)
+  fill_graph_for!(table, g, s)
+  return best_k_actions(g, ss, i, k)
+end
+
 function best_action_for(table::Vector{Float64}, g::MicroGame, s::MacroState, ss::MicroState, i::Int64)
     fill_graph_for!(table, g, s)
     return best_action(g, ss, i)

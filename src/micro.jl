@@ -2,7 +2,7 @@
 using StaticArrays
 
 export build_graph, fill_graph!
-export value_of_initial_state, value_of_rand_state, best_action, micro_category_state_to_macro_state
+export value_of_initial_state, value_of_rand_state, best_action, best_k_actions, micro_category_state_to_macro_state
 export MicroState, MicroGame
 
 struct MicroState
@@ -245,7 +245,7 @@ function value_of_rand_state(g::MicroGame, s::MicroState, i::Int64)
     return step[s].value
 end
 
-function best_action(g::MicroGame, s::MicroState, i::Int64)
+function actions(g::MicroGame, s::MicroState, i::Int64)
     @assert i == 1 || i == 2 || i == 3
     if i == 1
         step = g.action1
@@ -257,5 +257,16 @@ function best_action(g::MicroGame, s::MicroState, i::Int64)
         step = g.action3
         next_step = g.final
     end
-    return argmax(((_,v),) -> v, (ss,next_step[ss].value) for ss in step[s].successors)
+    return [(ss,next_step[ss].value) for ss in step[s].successors]
+end
+
+function best_k_actions(g::MicroGame, s::MicroState, i::Int64, k::Int64)
+    a = actions(g,s,i)
+    sort!(a, by=((_,v),) -> v, rev=true)
+    return a[1:min(k,length(a))]
+end
+
+function best_action(g::MicroGame, s::MicroState, i::Int64)
+    a = actions(g,s,i)
+    return argmax(((_,v),) -> v, a)
 end

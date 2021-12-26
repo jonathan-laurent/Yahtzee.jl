@@ -1,5 +1,7 @@
 export remaining_cats, is_done, is_chance, play, interactive
 
+const NB_SUGGESTIONS = 5
+
 function prompt(s::State)
   is_chance(s) ?
     (crayon"red", "chance> ", crayon"reset") :
@@ -49,29 +51,38 @@ function micro_state_to_dice_config(s::MicroState)
     return DiceConfig(SVector{NUM_DICES}(p))
 end
 
+function suggestions_for_state(table::Vector{Float64}, g::MicroGame, state::State)
+  (s, ss, i) = state_to_macro_micro(state)
+  if is_chance(state)
+      v = value_of_rand_state(table, g, s, ss, i) + total_score(state)
+      return ("Expected value: $(v)", nothing)
+  else
+      actions = best_k_actions_for(table, g, s, ss, i, NB_SUGGESTIONS)
+      str = ["Suggested actions:"]
+      d = nothing
+      for (nb,r) in enumerate(actions)
+        if i == 3
+          ((_,c), v) = r
+          v += total_score(state)
+          nb == 1 && (d = c)
+          push!(str, "$(cat_abbrev(c)) (expected value: $(v))")
+        else
+          (ms, v) = r
+          dc = micro_state_to_dice_config(ms)
+          v += total_score(state)
+          nb == 1 && (d = dc)
+          push!(str, "$(dc) (expected value: $(v))")
+        end
+      end
+      return (join(str, "\n"), d)
+  end
+end
+
 function interactive(s::State=State(), table::Union{Nothing,Vector{Float64}}=nothing)
     prediction = _ -> nothing
     if !isnothing(table)
       g = build_graph()
-      prediction = function (state)
-        (st, ss, i) = state_to_macro_micro(state)
-        if is_chance(state)
-            v = value_of_rand_state(table, g, st, ss, i) + total_score(state)
-            return ("Expected value: $(v)", nothing)
-        else
-            res = best_action_for(table, g, st, ss, i)
-            if i == 3
-                ((_,c), v) = res
-                v += total_score(state)
-                return ("Recommended action: $(cat_abbrev(c)) (expected value: $(v))", c)
-            else
-                (ms, v) = res
-                dc = micro_state_to_dice_config(ms)
-                v += total_score(state)
-                return ("Recommended action: $(dc) (expected value: $(v))", dc)
-            end
-        end
-      end
+      prediction = (state) -> suggestions_for_state(table, g, state)
     end
     history = [s]
     while !is_done(s)
