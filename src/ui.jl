@@ -56,8 +56,10 @@ end
 function suggestions_for_state(table::Vector{Stat}, g::MicroGame, state::State)
   (s, ss, i) = state_to_macro_micro(state)
   if is_chance(state)
-      stat = stat_of_rand_state(table, g, s, ss, i) + total_score(state)
-      return ((@sprintf "Expected value: %.2f" stat.value), nothing)
+      stat = stat_of_rand_state(table, g, s, ss, i)
+      v = stat.value + total_score(state)
+      dev = sqrt(stat.variance)
+      return ((@sprintf "Expected value: %.2f ± %.2f" v dev), nothing)
   else
       actions = best_k_actions_for(table, g, s, ss, i, NB_SUGGESTIONS)
       str = ["Suggested actions:"]
@@ -66,14 +68,16 @@ function suggestions_for_state(table::Vector{Stat}, g::MicroGame, state::State)
         if i == 3
           ((_,c), stat) = r
           v = stat.value + total_score(state)
+          dev = sqrt(stat.variance)
           nb == 1 && (d = c)
-          push!(str, @sprintf "%s (expected value: %.2f)" (cat_abbrev(c)) v)
+          push!(str, @sprintf "%s (expected value: %.2f ± %.2f)" (rpad(cat_abbrev(c), 2, " ")) v dev)
         else
           (ms, stat) = r
           dc = micro_state_to_dice_config(ms)
           v = stat.value + total_score(state)
+          dev = sqrt(stat.variance)
           nb == 1 && (d = dc)
-          push!(str, @sprintf "%s (expected value: %.2f)" dc v)
+          push!(str, @sprintf "%s (expected value: %.2f ± %.2f)" dc v dev)
         end
       end
       return (join(str, "\n"), d)
