@@ -1,7 +1,7 @@
 export Category, UPPER_CATEGORIES
 export DiceConfig
 export ScoreSheet, State
-export parse_action
+export parse_action, cat_abbrev
 export remaining_cats, is_done, is_chance, play
 
 #####
@@ -236,9 +236,9 @@ function is_small_straight(dices)
   return (hasall([1, 2, 3, 4]) || hasall([2, 3, 4, 5]) || hasall([3, 4, 5, 6]))
 end
 
-score_ss(dices) = is_small_straight(dices) : 30 : 0
+score_ss(dices) = is_small_straight(dices) ? 30 : 0
 
-score_ls(dices) = dices ∈ LARGE_STRAIGHTS : 40 : 0
+score_ls(dices) = dices ∈ LARGE_STRAIGHTS ? 40 : 0
 
 function score_dices(d::DiceConfig, c::Category)
   d = d.dices
@@ -267,6 +267,7 @@ function play(s::State, a::Action)
   elseif s.stage == CHOOSE_CAT
     @assert isa(a, Category)
     scores = set_catval(scores, a, score_dices(dices, a))
+    dices = ROLL_EVERYTHING
   end
   return State(scores, NEXT_STAGE[s.stage], dices)
 end

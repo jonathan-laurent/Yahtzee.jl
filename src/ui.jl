@@ -26,7 +26,20 @@ function state_to_macro_micro(s::State)
     m = set_upper_sec_total(m, score)
   
     return (m, ss, i)
-  end  
+  end
+
+function micro_state_to_dice_config(s::MicroState)
+    p = Vector{Int}()
+    for _ in 1:s.to_draw
+        push!(p, 0)
+    end
+    for (i,v) in enumerate(s.dice_values)
+        for _ in 1:v
+            push!(p, i)
+        end
+    end
+    return DiceConfig(SVector{NUM_DICES}(p))
+end
 
 function interactive(s::State=State(), table::Union{Nothing,Vector{Float64}}=nothing)
     prediction = _ -> nothing
@@ -35,9 +48,17 @@ function interactive(s::State=State(), table::Union{Nothing,Vector{Float64}}=not
       prediction = function (s)
         (s, ss, i) = state_to_macro_micro(s)
         if i == 0
-          return nothing
+            return nothing
         else
-          return best_action_for(table, g, s, ss, i)
+            res = best_action_for(table, g, s, ss, i)
+            if i == 3
+                ((_,c), v) = res
+                return ("$(cat_abbrev(c)) (expected value: $(v))", c)
+            else
+                (ms, v) = res
+                dc = micro_state_to_dice_config(ms)
+                return ("$(dc) (expected value: $(v))", dc)
+            end
         end
       end
     end
@@ -46,8 +67,10 @@ function interactive(s::State=State(), table::Union{Nothing,Vector{Float64}}=not
       print("\n" ^ 20)
       println(s)
       pred = prediction(s)
+      default = nothing
       if !isnothing(pred)
-        println("Prediction available.")
+        (str, default) = pred
+        println("Recommended action: $(str)")
       end
       print(prompt(s)...)
       inp = readline()
@@ -57,7 +80,11 @@ function interactive(s::State=State(), table::Union{Nothing,Vector{Float64}}=not
         continue
       end
       try
-        a = parse_action(inp)
+        if isempty(inp)
+            a = default
+        else
+            a = parse_action(inp)
+        end
         new_st = play(s, a)
         push!(history, s)
         s = new_st
