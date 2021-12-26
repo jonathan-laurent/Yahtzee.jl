@@ -2,7 +2,7 @@
 using StaticArrays
 
 export build_graph, fill_graph!
-export value_of_initial_state, best_action, micro_category_state_to_macro_state
+export value_of_initial_state, value_of_rand_state, best_action, micro_category_state_to_macro_state
 export MicroState, MicroGame
 
 struct MicroState
@@ -230,7 +230,19 @@ function fill_graph!(initial::MacroState, g::MicroGame, macro_values)
 end
 
 function value_of_initial_state(g::MicroGame)
-    return g.rand1[g.init].value;
+    return g.rand1[g.init].value
+end
+
+function value_of_rand_state(g::MicroGame, s::MicroState, i::Int64)
+    @assert i == 1 || i == 2 || i == 3
+    if i == 1
+        step = g.rand1
+    elseif i == 2
+        step = g.rand2
+    else
+        step = g.rand3
+    end
+    return step[s].value
 end
 
 function best_action(g::MicroGame, s::MicroState, i::Int64)

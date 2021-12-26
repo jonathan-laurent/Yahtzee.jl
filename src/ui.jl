@@ -5,6 +5,9 @@ function state_to_macro_micro(s::State)
     s.stage == CHOOSE_1 && (i = 1)
     s.stage == CHOOSE_2 && (i = 2)
     s.stage == CHOOSE_CAT && (i = 3)
+    s.stage == ROLL_1 && (i = 1)
+    s.stage == ROLL_2 && (i = 2)
+    s.stage == ROLL_3 && (i = 3)
     
     d = s.dices.dices
     #zeros = count(==(0), d)
@@ -45,12 +48,13 @@ function interactive(s::State=State(), table::Union{Nothing,Vector{Float64}}=not
     prediction = _ -> nothing
     if !isnothing(table)
       g = build_graph()
-      prediction = function (s)
-        (s, ss, i) = state_to_macro_micro(s)
-        if i == 0
-            return nothing
+      prediction = function (state)
+        (st, ss, i) = state_to_macro_micro(state)
+        if is_chance(state)
+            v = value_of_rand_state(table, g, st, ss, i)
+            return ("expected value: $(v)", nothing)
         else
-            res = best_action_for(table, g, s, ss, i)
+            res = best_action_for(table, g, st, ss, i)
             if i == 3
                 ((_,c), v) = res
                 return ("$(cat_abbrev(c)) (expected value: $(v))", c)
