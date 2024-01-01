@@ -17,12 +17,11 @@ export upper_score, total_score, upper_bonus
   FIVES
   SIXES
   THREE_OF_A_KIND
-  FOUR_OF_A_KIND
-  FULL_HOUSE
   SMALL_STRAIGHT
   LARGE_STRAIGHT
-  YAHTZEE
-  CHANCE
+  FULL_HOUSE
+  FOUR_OF_A_KIND
+  YAMS
 end
 
 const UPPER_CATEGORIES = [ACES, TWOS, THREES, FOURS, FIVES, SIXES]
@@ -37,12 +36,11 @@ const CAT_ABBREV = Dict(
   FIVES => "5",
   SIXES => "6",
   THREE_OF_A_KIND => "3k",
-  FOUR_OF_A_KIND => "4k",
-  FULL_HOUSE => "f",
   SMALL_STRAIGHT => "ss",
   LARGE_STRAIGHT => "ls",
-  YAHTZEE => "y",
-  CHANCE => "c")
+  FULL_HOUSE => "f",
+  FOUR_OF_A_KIND => "4k",
+  YAMS => "y")
 
 const CAT_ABBREV_REV = Dict(a=>c for (c, a) in CAT_ABBREV)
 
@@ -59,8 +57,8 @@ end
 
 ScoreSheet() = ScoreSheet(@SVector[nothing for _ in instances(Category)])
 
-ScoreSheet(ones,twos,threes,fours,fives,sixes,tk,fk,f,ss,ls,y,c) =
-  ScoreSheet(SVector{NUM_CATEGORIES, Union{Int, Nothing}}(ones,twos,threes,fours,fives,sixes,tk,fk,f,ss,ls,y,c))
+ScoreSheet(ones,twos,threes,fours,fives,sixes,tk,ss,ls,f,fk,y) =
+  ScoreSheet(SVector{NUM_CATEGORIES, Union{Int, Nothing}}(ones,twos,threes,fours,fives,sixes,tk,ss,ls,f,fk,y))
 
 catval(s::ScoreSheet, c::Category) = s.scores[Int(c) + 1]
 
@@ -227,24 +225,21 @@ has_k_of_a_kind(dices, k) = any(v -> count_val(v, dices) >= k, DICE_VALUES)
 
 has_exactly_k_of_a_kind(dices, k) = any(v -> count_val(v, dices) == k, DICE_VALUES)
 
-score_k(dices, k) = has_k_of_a_kind(dices, k) ? sum(dices) : 0
+score_3k(dices) = has_k_of_a_kind(dices, 3) ? sum(dices) : 0
+
+score_4k(dices) = has_k_of_a_kind(dices, 4) ? 40 : 0
 
 score_y(dices) = has_k_of_a_kind(dices, 5) ? 50 : 0
 
 score_f(dices) = has_k_of_a_kind(dices, 5) ||
-                (has_exactly_k_of_a_kind(dices, 3) && has_exactly_k_of_a_kind(dices, 2)) ? 25 : 0
+                (has_exactly_k_of_a_kind(dices, 3) && has_exactly_k_of_a_kind(dices, 2)) ? 30 : 0
 
-const LARGE_STRAIGHTS = map(s -> parse(DiceConfig, s).dices, ["12345", "23456"])
+const SMALL_STRAIGHTS = map(s -> parse(DiceConfig, s).dices, ["12345"])
+const LARGE_STRAIGHTS = map(s -> parse(DiceConfig, s).dices, ["23456"])
 
-function is_small_straight(dices)
-  has(k) = count_val(k, dices) >= 1
-  hasall(ks) = all(has, ks)
-  return (hasall([1, 2, 3, 4]) || hasall([2, 3, 4, 5]) || hasall([3, 4, 5, 6]))
-end
+score_ss(dices) = dices ∈ SMALL_STRAIGHTS ? 15 : 0
 
-score_ss(dices) = is_small_straight(dices) ? 30 : 0
-
-score_ls(dices) = dices ∈ LARGE_STRAIGHTS ? 40 : 0
+score_ls(dices) = dices ∈ LARGE_STRAIGHTS ? 20 : 0
 
 function score_dices(d::DiceConfig, c::Category)
   d = d.dices
@@ -254,11 +249,10 @@ function score_dices(d::DiceConfig, c::Category)
   (c == FOURS)  && (return score_upper(d, 4))
   (c == FIVES)  && (return score_upper(d, 5))
   (c == SIXES)  && (return score_upper(d, 6))
-  (c == THREE_OF_A_KIND) && (return score_k(d, 3))
-  (c == FOUR_OF_A_KIND)  && (return score_k(d, 4))
+  (c == THREE_OF_A_KIND) && (return score_3k(d))
+  (c == FOUR_OF_A_KIND)  && (return score_4k(d))
   (c == FULL_HOUSE) && (return score_f(d))
-  (c == CHANCE)  && (return sum(d))
-  (c == YAHTZEE) && (return score_y(d))
+  (c == YAMS) && (return score_y(d))
   (c == SMALL_STRAIGHT) && (return score_ss(d))
   (c == LARGE_STRAIGHT) && (return score_ls(d))
   @assert false

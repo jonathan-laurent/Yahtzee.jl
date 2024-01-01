@@ -100,28 +100,15 @@ function score_of_category_state(cat_state::MicroCategoryState)
     elseif cat == THREE_OF_A_KIND
         return any(>=(3), dice_values) ? sum(i*n for (i,n) in enumerate(dice_values)) : 0
     elseif cat == FOUR_OF_A_KIND
-        return any(>=(4), dice_values) ? sum(i*n for (i,n) in enumerate(dice_values)) : 0
+        return any(>=(4), dice_values) ? 40 : 0
     elseif cat == FULL_HOUSE
-        return (any(==(3), dice_values) && any(==(2), dice_values)) || any(==(5), dice_values) ? 25 : 0
+        return (any(==(3), dice_values) && any(==(2), dice_values)) || any(==(5), dice_values) ? 30 : 0
     elseif cat == SMALL_STRAIGHT
-        for i in 1:3
-            if dice_values[i] >= 1 && dice_values[i+1] >= 1 && dice_values[i+2] >= 1 && dice_values[i+3] >= 1
-                return 30
-            end
-        end
-        return 0
+        return all(<=(1), dice_values) && (dice_values[6] == 0) ? 15 : 0
     elseif cat == LARGE_STRAIGHT
-        for i in 1:2
-            if dice_values[i] >= 1 && dice_values[i+1] >= 1 && dice_values[i+2] >= 1 &&
-                dice_values[i+3] >= 1 && dice_values[i+4] >= 1
-                return 40
-            end
-        end
-        return 0
-    elseif cat == YAHTZEE
+        return all(<=(1), dice_values) && (dice_values[1] == 0) ? 20 : 0
+    elseif cat == YAMS
         return any(>=(5), dice_values) ? 50 : 0
-    elseif cat == CHANCE
-        return sum(i*n for (i,n) in enumerate(dice_values))
     end
 end
 

@@ -1,5 +1,5 @@
 using Test
-using Yahtzee
+using Yahtzee.Classic
 using StaticArrays
 using BenchmarkTools
 #using ProfileView

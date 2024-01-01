@@ -1,5 +1,5 @@
 using Test
-using Yahtzee
+using Yahtzee.Classic
 using StaticArrays
 
 function test()
@@ -28,7 +28,7 @@ function test()
 
     # Graph filling
     macro_st = INITIAL_MACROSTATE
-    macro_st = set_used(macro_st, Yahtzee.SMALL_STRAIGHT)
+    macro_st = set_used(macro_st, Classic.SMALL_STRAIGHT)
     fill_graph!(macro_st, g, _ -> Stat())
     println(stat_of_initial_state(g).value)
     state = MicroState(0,1,1,0,0,3)
